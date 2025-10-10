@@ -28,6 +28,14 @@ Route::post('/login',    [KONTROLER::class, 'login'])->name('login.submit');
 // logout hanya untuk user login
 Route::post('/logout',   [KONTROLER::class, 'logout'])->middleware('auth')->name('logout');
 
+// cancel waitlist (mahasiswa)
+Route::delete('/waitlist/{waitlist}', [FRSController::class, 'cancelWaitlist'])->name('waitlist.cancel');
+
+// delete master data
+Route::delete('/matkul/{matkul}', [FRSController::class, 'destroyMatkul'])->name('matkul.destroy');
+Route::delete('/kelas/{kelas}',   [FRSController::class, 'destroyKelas'])->name('kelas.destroy');
+
+
 /*
 |--------------------------------------------------------------------------
 | Aksi FRS (wajib login)

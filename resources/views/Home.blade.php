@@ -34,41 +34,82 @@
 
   @guest
     <h2>Web-FRS</h2>
+    @php
+      // Halaman aktif: 'register' (default) atau 'login'
+      $activePage = request()->get('page') === 'login' ? 'login' : 'register';
+    @endphp
 
-    <div class="box">
+    {{-- REGISTER --}}
+    <div class="box" @if($activePage !== 'register') style="display:none;" @endif>
       <h3>Register</h3>
-      <form action="{{ route('register') }}" method="POST" class="row">
+      <form action="{{ route('register') }}" method="POST">
         @csrf
-        <input name="name" type="text" placeholder="name" value="{{ old('name') }}">
+        <div class="row">
+          <input name="name" type="text" placeholder="name" value="{{ old('name') }}">
+          <input name="email" type="text"
+                 placeholder="contoh: 5024241033@student.its.ac.id"
+                 value="{{ old('email') }}">
+          <input name="password" type="password" placeholder="password">
+          <button type="submit">Register</button>
+        </div>
         @error('name') <small class="text-danger">{{ $message }}</small> @enderror
-
-        <input name="email" type="text" placeholder="email" value="{{ old('email') }}">
         @error('email') <small class="text-danger">{{ $message }}</small> @enderror
-
-        <input name="password" type="password" placeholder="password">
         @error('password') <small class="text-danger">{{ $message }}</small> @enderror
-
-        <button type="submit">Register</button>
       </form>
+      <p style="margin-top:10px">Sudah punya akun? <a href="?page=login">Login di sini</a></p>
     </div>
 
-    <div class="box">
+    {{-- LOGIN --}}
+    <div class="box" @if($activePage !== 'login') style="display:none;" @endif>
       <h3>Login</h3>
-      <form action="{{ route('login.submit') }}" method="POST" class="row">
+      <form action="{{ route('login.submit') }}" method="POST">
         @csrf
-        <input name="loginname" type="text" placeholder="name or email" value="{{ old('loginname') }}">
+        <div class="row">
+          <input name="loginname" type="text"
+                 placeholder="contoh: 5024241033@student.its.ac.id"
+                 value="{{ old('loginname') }}">
+          <input name="loginpassword" type="password" placeholder="password">
+          <button type="submit">Login</button>
+        </div>
         @error('loginname') <small class="text-danger">{{ $message }}</small> @enderror
-
-        <input name="loginpassword" type="password" placeholder="password">
         @error('loginpassword') <small class="text-danger">{{ $message }}</small> @enderror
-
-        <button type="submit">Login</button>
       </form>
+      <p style="margin-top:10px">Belum punya akun? <a href="?page=register">Register di sini</a></p>
     </div>
   @endguest
 
   @auth
-    <p>masuk dia njir</p>
+    @php
+      // === SIMULASI IPS/IPK (1.00–4.00) DISIMPAN DI SESSION ===
+      if (session()->has('sim_gpa')) {
+        $gpa = session('sim_gpa');
+      } else {
+        $gpa = round(mt_rand(100, 400) / 100, 2); // 1.00–4.00, 2 desimal
+        session(['sim_gpa' => $gpa]);
+      }
+
+      // === Mapping IPS -> Maks SKS sesuai tabel ===
+      if ($gpa < 2.50)      $MAX_SKS = 18;
+      elseif ($gpa < 3.00)  $MAX_SKS = 20;
+      elseif ($gpa < 3.50)  $MAX_SKS = 22;
+      else                  $MAX_SKS = 24;
+    @endphp
+
+    {{-- IDENTITAS USER --}}
+    <p style="margin:6px 0"><strong>{{ auth()->user()->name ?? 'User' }}</strong></p>
+    <p style="margin:6px 0"><span class="pill">NRP: {{ auth()->user()->nrp ?? '—' }}</span></p>
+    <p style="margin:6px 0">
+      <span class="pill">Sim. IPS: {{ number_format($gpa, 2) }}</span>
+      &nbsp; <small style="color:#555">Maks SKS sesuai IPS: <strong>{{ $MAX_SKS }} SKS</strong></small>
+      {{-- Tombol kecil untuk regenerate nilai simulasi (opsional) --}}
+
+      @php
+        if (request()->has('regen')) {
+          session()->forget('sim_gpa');
+          echo '<meta http-equiv="refresh" content="0;url='.e(url()->current()).'">';
+        }
+      @endphp
+    </p>
 
     <form action="{{ route('logout') }}" method="POST" class="box">
       @csrf
@@ -76,7 +117,7 @@
     </form>
 
     @php
-      // ==== ambil data ====
+      // ===== data untuk dropdown gabungan =====
       $matkuls = \App\Models\Matkul::orderBy('title')->get();
       $kelass  = \App\Models\Kelas::orderBy('title')->get()->keyBy('id');
 
@@ -97,7 +138,7 @@
         }
       }
 
-      // bikin opsi gabungan: VALUE = "matkulId|kelasId", LABEL = "Matkul (SKS) — Kelas · Kursi · Jam"
+      // opsi gabungan: VALUE = "matkulId|kelasId"
       $pairs = [];
       foreach ($matkuls as $m) {
         foreach ($kelass as $k) {
@@ -152,23 +193,14 @@
       @php
         $enrolls = \App\Models\Enrollment::with(['matkul','kelas'])
                    ->where('user_id', auth()->id())->get();
+
         $totalSks = 0;
         foreach ($enrolls as $e) { $totalSks += (int)($e->matkul->sks ?? 0); }
-        $MAX_SKS = 24;
-        $remaining = max(0, $MAX_SKS - $totalSks);
+
+        // $MAX_SKS sudah dihitung dari simulasi IPS di atas (fallback 24 kalau belum)
+        $remaining = max(0, ($MAX_SKS ?? 24) - $totalSks);
       @endphp
 
-      <div class="row" style="margin:6px 0 12px">
-        <div><strong>Total SKS:</strong> {{ $totalSks }} / {{ $MAX_SKS }}</div>
-        <div><strong>Sisa SKS:</strong> {{ $remaining }}</div>
-
-        <form action="{{ route('frs.submit') }}" method="POST" style="margin-left:auto">
-          @csrf
-          <button type="submit" {{ $totalSks > $MAX_SKS ? 'disabled' : '' }}>
-            Submit FRS
-          </button>
-        </form>
-      </div>
 
       <table>
         <thead>
@@ -219,6 +251,7 @@
       </table>
     </div>
 
+    {{-- =================== WAITLIST =================== --}}
     <div class="box">
       <h3>Waitlist-ku</h3>
       @php
@@ -234,15 +267,17 @@
             <th>Matkul</th>
             <th>Kelas</th>
             <th>Posisi</th>
-            <th style="width:200px">Keterangan</th>
+            <th style="width:220px">Keterangan</th>
             <th style="width:180px">Di-antri Pada</th>
+            <th style="width:100px">Aksi</th>
           </tr>
         </thead>
         <tbody>
           @forelse($myWaits as $i => $w)
             @php
               $pos = \App\Models\Waitlist::where('kelas_id',$w->kelas_id)
-                        ->where('created_at','<=',$w->created_at)->count();
+                      ->where('matkul_id',$w->matkul_id)
+                      ->where('created_at','<=',$w->created_at)->count();
               $cap   = (int)($w->kelas->capacity ?? 0);
               $taken = (int)(\App\Models\Enrollment::where('kelas_id',$w->kelas_id)->count());
               $left  = max(0, $cap - $taken);
@@ -261,9 +296,96 @@
                 @endif
               </td>
               <td>{{ $w->created_at->format('Y-m-d H:i') }}</td>
+              <td class="actions">
+                <form action="{{ route('waitlist.cancel', $w->id) }}" method="POST"
+                      onsubmit="return confirm('Keluar dari waitlist {{ $w->matkul->title }} — {{ $w->kelas->title }}?')">
+                  @csrf
+                  @method('DELETE')
+                  <button type="submit">Cancel</button>
+                </form>
+              </td>
             </tr>
           @empty
-            <tr><td colspan="6">Tidak ada antrian.</td></tr>
+            <tr><td colspan="7">Tidak ada antrian.</td></tr>
+          @endforelse
+        </tbody>
+      </table>
+    </div>
+
+    {{-- =================== PANEL DEV: MASTER DATA =================== --}}
+    <div class="box">
+      <h2>Matkul</h2>
+      <form action="{{ route('matkul.create') }}" method="POST" class="row">
+        @csrf
+        <input type="text" name="title" placeholder="contoh: Sistem Basis Data" required>
+        <button type="submit">Tambah Matkul</button>
+      </form>
+      @error('title') <div class="alert alert-error">{{ $message }}</div> @enderror
+
+      @php $matkulsAdmin = \App\Models\Matkul::orderBy('title')->get(); @endphp
+      <table style="margin-top:10px">
+        <thead>
+          <tr>
+            <th style="width:60px">#</th>
+            <th>Nama Matkul</th>
+            <th style="width:120px">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          @forelse($matkulsAdmin as $i => $m)
+            <tr>
+              <td>{{ $i+1 }}</td>
+              <td>{{ $m->title }}</td>
+              <td class="actions">
+                <form action="{{ route('matkul.destroy', $m->id) }}" method="POST"
+                      onsubmit="return confirm('Hapus matkul {{ $m->title }}?')">
+                  @csrf
+                  @method('DELETE')
+                  <button type="submit">Delete</button>
+                </form>
+              </td>
+            </tr>
+          @empty
+            <tr><td colspan="3">Belum ada data matkul.</td></tr>
+          @endforelse
+        </tbody>
+      </table>
+    </div>
+
+    <div class="box">
+      <h2>Kelas</h2>
+      <form action="{{ route('kelas.create') }}" method="POST" class="row">
+        @csrf
+        <input type="text" name="title" placeholder="contoh: IF 107" required>
+        <button type="submit">Tambah Kelas</button>
+      </form>
+      @error('title') <div class="alert alert-error">{{ $message }}</div> @enderror
+
+      @php $kelassAdmin = \App\Models\Kelas::orderBy('title')->get(); @endphp
+      <table style="margin-top:10px">
+        <thead>
+          <tr>
+            <th style="width:60px">#</th>
+            <th>Kode Kelas</th>
+            <th style="width:120px">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          @forelse($kelassAdmin as $i => $k)
+            <tr>
+              <td>{{ $i+1 }}</td>
+              <td>{{ $k->title }}</td>
+              <td class="actions">
+                <form action="{{ route('kelas.destroy', $k->id) }}" method="POST"
+                      onsubmit="return confirm('Hapus kelas {{ $k->title }}?')">
+                  @csrf
+                  @method('DELETE')
+                  <button type="submit">Delete</button>
+                </form>
+              </td>
+            </tr>
+          @empty
+            <tr><td colspan="3">Belum ada data kelas.</td></tr>
           @endforelse
         </tbody>
       </table>
