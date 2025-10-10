@@ -6,5 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Matkul extends Model
 {
-    protected $fillable = ['title'];
+    // app/Models/Matkul.php
+protected $fillable = ['title', 'sks'];
+
 }

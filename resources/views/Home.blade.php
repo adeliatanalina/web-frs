@@ -15,20 +15,22 @@
     .alert-error{background:var(--err);color:var(--errc);border:1px solid var(--errb)}
     small.text-danger{color:#b00020}
     table{border-collapse:collapse;width:100%}
-    th,td{border:1px solid #ddd;padding:8px;text-align:left}
+    th,td{border:1px solid #ddd;padding:8px;text-align:left;vertical-align:top}
     thead th{background:var(--muted)}
-    hr{margin:28px 0}
     .actions form{display:inline}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #ddd;font-size:12px;color:#555}
   </style>
 </head>
 <body>
 
-  
   @if(session('ok'))
     <div class="alert alert-success">{{ session('ok') }}</div>
   @endif
-
-  
+  @if($errors->any())
+    <div class="alert alert-error">
+      @foreach($errors->all() as $e) <div>{{ $e }}</div> @endforeach
+    </div>
+  @endif
 
   @guest
     <h2>Web-FRS</h2>
@@ -52,9 +54,9 @@
 
     <div class="box">
       <h3>Login</h3>
-      <form action="{{ route('login') }}" method="POST" class="row">
+      <form action="{{ route('login.submit') }}" method="POST" class="row">
         @csrf
-        <input name="loginname" type="text" placeholder="name" value="{{ old('loginname') }}">
+        <input name="loginname" type="text" placeholder="name or email" value="{{ old('loginname') }}">
         @error('loginname') <small class="text-danger">{{ $message }}</small> @enderror
 
         <input name="loginpassword" type="password" placeholder="password">
@@ -65,8 +67,6 @@
     </div>
   @endguest
 
-
-
   @auth
     <p>masuk dia njir</p>
 
@@ -75,137 +75,107 @@
       <button type="submit">log out</button>
     </form>
 
-
-    
-{{-- 
-    <h2>Matkul</h2>
-    <div class="box">
-      <form action="{{ route('matkul.create') }}" method="POST" class="row">
-        @csrf
-        <input type="text" name="title" placeholder="contoh: Sistem Basis Data" required>
-        <button type="submit">Tambah Matkul</button>
-      </form>
-      @error('title') <div class="alert alert-error">{{ $message }}</div> @enderror
-
-      @php $matkuls = \App\Models\Matkul::orderBy('title')->get(); @endphp
-      <table style="margin-top:10px">
-        <thead>
-          <tr>
-            <th style="width:60px">#</th>
-            <th>Nama Matkul</th>
-          </tr>
-        </thead>
-        <tbody>
-          @forelse($matkuls as $i => $m)
-            <tr>
-              <td>{{ $i+1 }}</td>
-              <td>{{ $m->title }}</td>
-            </tr>
-          @empty
-            <tr><td colspan="2">Belum ada data matkul.</td></tr>
-          @endforelse
-        </tbody>
-      </table>
-    </div>
-
-
-
-    <h2>Kelas</h2>
-    <div class="box">
-      <form action="{{ route('kelas.create') }}" method="POST" class="row">
-        @csrf
-        <input type="text" name="title" placeholder="contoh: IF 107" required>
-        <button type="submit">Tambah Kelas</button>
-      </form>
-      @error('title') <div class="alert alert-error">{{ $message }}</div> @enderror
-
-      @php $kelass = \App\Models\Kelas::orderBy('title')->get(); @endphp
-      <table style="margin-top:10px">
-        <thead>
-          <tr>
-            <th style="width:60px">#</th>
-            <th>Kode Kelas</th>
-          </tr>
-        </thead>
-        <tbody>
-          @forelse($kelass as $i => $k)
-            <tr>
-              <td>{{ $i+1 }}</td>
-              <td>{{ $k->title }}</td>
-            </tr>
-          @empty
-            <tr><td colspan="2">Belum ada data kelas.</td></tr>
-          @endforelse
-        </tbody>
-      </table>
-    </div>
-
-    <hr />
---}}
-    
-
     @php
+      // ==== ambil data ====
       $matkuls = \App\Models\Matkul::orderBy('title')->get();
-      $kelass  = \App\Models\Kelas::orderBy('title')->get();
+      $kelass  = \App\Models\Kelas::orderBy('title')->get()->keyBy('id');
+
+      // hitung seat terisi per kelas (sekali query)
+      $takenPerKelas = \App\Models\Enrollment::selectRaw('kelas_id, COUNT(*) as c')
+          ->groupBy('kelas_id')->pluck('c','kelas_id');
+
+      // helper "nama jam"
+      if (!function_exists('timeSlotName')) {
+        function timeSlotName($hhmm) {
+          if (!$hhmm) return '';
+          [$h,$m] = array_pad(explode(':', $hhmm), 2, '0');
+          $min = ((int)$h)*60 + (int)$m;
+          if ($min < 11*60) return 'Pagi';
+          if ($min < 16*60) return 'Siang';
+          if ($min < 19*60) return 'Sore';
+          return 'Malam';
+        }
+      }
+
+      // bikin opsi gabungan: VALUE = "matkulId|kelasId", LABEL = "Matkul (SKS) — Kelas · Kursi · Jam"
+      $pairs = [];
+      foreach ($matkuls as $m) {
+        foreach ($kelass as $k) {
+          $cap   = (int)($k->capacity ?? 0);
+          $taken = (int)($takenPerKelas[$k->id] ?? 0);
+          $isFull = $cap > 0 && $taken >= $cap;
+
+          $label = $m->title.' ('.($m->sks ?? '-').' SKS) — '.$k->title.' · ';
+          $label .= "Kursi: {$taken}/".($cap ?: '—');
+          if ($isFull) $label .= ' (Penuh — akan masuk waitlist)';
+
+          if (isset($k->start_time,$k->end_time) && $k->start_time && $k->end_time) {
+            $label .= ' · '.$k->start_time.'–'.$k->end_time.' ('.timeSlotName($k->start_time).')';
+          }
+
+          $pairs[] = (object)[ 'value' => $m->id.'|'.$k->id, 'label' => $label ];
+        }
+      }
     @endphp
 
-    <h2>Ambil Matkul</h2>
+    <h2>Ambil Matkul (Satu Pilihan)</h2>
     <div class="box">
       <form action="{{ route('frs.enroll') }}" method="POST" class="row">
         @csrf
 
-
-        <label>Matkul</label>
-        <select name="matkul_id" required {{ $matkuls->isEmpty() ? 'disabled' : '' }}>
-          @if($matkuls->isEmpty())
-            <option>Belum ada matkul — tambah dulu di atas</option>
+        <label for="pair">Matkul + Kelas</label>
+        <select id="pair" name="pair" required {{ empty($pairs) ? 'disabled' : '' }}>
+          @if(empty($pairs))
+            <option>Belum ada data matkul/kelas.</option>
           @else
-            <option value="" disabled selected>-- Pilih Matkul --</option>
-            @foreach($matkuls as $m)
-              <option value="{{ $m->id }}">{{ $m->title }}</option>
+            <option value="" disabled selected>-- Pilih --</option>
+            @foreach($pairs as $p)
+              <option value="{{ $p->value }}">{{ $p->label }}</option>
             @endforeach
           @endif
         </select>
-        @error('matkul_id') <small class="text-danger">{{ $message }}</small> @enderror
+        @error('pair') <small class="text-danger">{{ $message }}</small> @enderror
 
-        <label>Kelas</label>
-        <select name="kelas_id" required {{ $kelass->isEmpty() ? 'disabled' : '' }}>
-          @if($kelass->isEmpty())
-            <option>Belum ada kelas — tambah dulu di atas</option>
-          @else
-            <option value="" disabled selected>-- Pilih Kelas --</option>
-            @foreach($kelass as $k)
-              <option value="{{ $k->id }}">{{ $k->title }}</option>
-            @endforeach
-          @endif
-        </select>
-        @error('kelas_id') <small class="text-danger">{{ $message }}</small> @enderror
-
-        <button type="submit" {{ ($matkuls->isEmpty() || $kelass->isEmpty()) ? 'disabled' : '' }}>
+        <button type="submit" {{ empty($pairs) ? 'disabled' : '' }}>
           Simpan Pilihan
         </button>
       </form>
 
-      @if(session('ok'))
-        <div class="alert alert-success" style="margin-top:10px">{{ session('ok') }}</div>
-      @endif
+      <p style="margin-top:8px;color:#555">
+        <span class="pill">Catatan</span> Jika kelas penuh, pilihanmu otomatis masuk <strong>waitlist</strong>.
+        Saat ada yang drop, antrian teratas akan otomatis masuk FRS.
+      </p>
     </div>
-
-
-    
-
 
     <div class="box">
       <h3>FRS-ku</h3>
       @php
         $enrolls = \App\Models\Enrollment::with(['matkul','kelas'])
                    ->where('user_id', auth()->id())->get();
+        $totalSks = 0;
+        foreach ($enrolls as $e) { $totalSks += (int)($e->matkul->sks ?? 0); }
+        $MAX_SKS = 24;
+        $remaining = max(0, $MAX_SKS - $totalSks);
       @endphp
+
+      <div class="row" style="margin:6px 0 12px">
+        <div><strong>Total SKS:</strong> {{ $totalSks }} / {{ $MAX_SKS }}</div>
+        <div><strong>Sisa SKS:</strong> {{ $remaining }}</div>
+
+        <form action="{{ route('frs.submit') }}" method="POST" style="margin-left:auto">
+          @csrf
+          <button type="submit" {{ $totalSks > $MAX_SKS ? 'disabled' : '' }}>
+            Submit FRS
+          </button>
+        </form>
+      </div>
+
       <table>
         <thead>
           <tr>
             <th style="width:60px">#</th>
             <th>Matkul</th>
+            <th style="width:90px">SKS</th>
             <th>Kelas</th>
             <th style="width:180px">Diambil Pada</th>
             <th style="width:120px">Aksi</th>
@@ -213,10 +183,22 @@
         </thead>
         <tbody>
           @forelse($enrolls as $i => $e)
+            @php $sks = (int)($e->matkul->sks ?? 0); @endphp
             <tr>
               <td>{{ $i+1 }}</td>
               <td>{{ $e->matkul->title }}</td>
-              <td>{{ $e->kelas->title }}</td>
+              <td>{{ $sks ?: '-' }}</td>
+              <td>
+                {{ $e->kelas->title }}
+                @if(isset($e->kelas->capacity))
+                  <div class="pill" style="margin-top:4px">
+                    Kapasitas:
+                    {{ (\App\Models\Enrollment::where('kelas_id',$e->kelas->id)->count()) }}
+                    /
+                    {{ $e->kelas->capacity }}
+                  </div>
+                @endif
+              </td>
               <td>{{ $e->created_at->format('Y-m-d H:i') }}</td>
               <td class="actions">
                 <form action="{{ route('frs.drop', $e->id) }}" method="POST"
@@ -228,12 +210,64 @@
               </td>
             </tr>
           @empty
-            <tr><td colspan="5">Belum ada mata kuliah yang diambil.</td></tr>
+            <tr><td colspan="6">Belum ada mata kuliah yang diambil.</td></tr>
+          @endforelse
+          <tr>
+            <td colspan="6" style="text-align:right"><strong>Total SKS: {{ $totalSks }}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="box">
+      <h3>Waitlist-ku</h3>
+      @php
+        $myWaits = \App\Models\Waitlist::with(['matkul','kelas'])
+                   ->where('user_id', auth()->id())
+                   ->orderBy('created_at','asc')
+                   ->get();
+      @endphp
+      <table>
+        <thead>
+          <tr>
+            <th style="width:60px">#</th>
+            <th>Matkul</th>
+            <th>Kelas</th>
+            <th>Posisi</th>
+            <th style="width:200px">Keterangan</th>
+            <th style="width:180px">Di-antri Pada</th>
+          </tr>
+        </thead>
+        <tbody>
+          @forelse($myWaits as $i => $w)
+            @php
+              $pos = \App\Models\Waitlist::where('kelas_id',$w->kelas_id)
+                        ->where('created_at','<=',$w->created_at)->count();
+              $cap   = (int)($w->kelas->capacity ?? 0);
+              $taken = (int)(\App\Models\Enrollment::where('kelas_id',$w->kelas_id)->count());
+              $left  = max(0, $cap - $taken);
+            @endphp
+            <tr>
+              <td>{{ $i+1 }}</td>
+              <td>{{ $w->matkul->title ?? '-' }}</td>
+              <td>{{ $w->kelas->title ?? '-' }}</td>
+              <td>#{{ $pos }}</td>
+              <td>
+                Kapasitas: {{ $taken }}/{{ $cap ?: '—' }}<br>
+                @if($left>0)
+                  <span class="pill">Ada {{ $left }} kursi kosong — segera dipromosikan otomatis</span>
+                @else
+                  Menunggu ada yang drop…
+                @endif
+              </td>
+              <td>{{ $w->created_at->format('Y-m-d H:i') }}</td>
+            </tr>
+          @empty
+            <tr><td colspan="6">Tidak ada antrian.</td></tr>
           @endforelse
         </tbody>
       </table>
     </div>
   @endauth
-
 </body>
 </html>
