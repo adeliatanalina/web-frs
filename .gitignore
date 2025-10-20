@@ -1,24 +1,39 @@
-*.log
-.DS_Store
-.env
-.env.backup
-.env.production
-.phpactor.json
-.phpunit.result.cache
-/.fleet
-/.idea
-/.nova
-/.phpunit.cache
-/.vscode
-/.zed
-/auth.json
+# Laravel & Framework
+/vendor
 /node_modules
-/public/build
 /public/hot
 /public/storage
 /storage/*.key
+/storage/framework/*
+/storage/logs/*
 /storage/pail
-/vendor
+
+# Environment files 
+.env
+.env.*
+!.env.example
+
+# IDE / Editor
+.idea
+.vscode
+.fleet
+.phpactor.json
+.phpunit.result.cache
+/.phpunit.cache
+/.nova
+/.zed
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Logs & temp
+*.log
 Homestead.json
 Homestead.yaml
-Thumbs.db
+
+# Build outputs
+/public/build
+
+# Optional: remove comment below if pakai Laravel Sail / Docker
+# docker-compose.override.yml

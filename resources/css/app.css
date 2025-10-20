@@ -1,21 +1,64 @@
-@import 'tailwindcss';
-
-
-
-@source '../../vendor/Laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-
-@source '../../storage/framework/views/*.php';
-
-@source '../**/*.blade.php';
-
-@source '../**/*.js';
-
-
-
-@theme {
-
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-
-        'Segoe UI Symbol', 'Noto Color Emoji';
-
-}
+:root{
+    --bg:#ffffff; --text:#1f2937; --muted:#f8fafc; --border:#e5e7eb;
+    --primary:#2563eb; --primary-600:#1d4ed8;
+    --ok:#e7f6ec; --okb:#b8e0c7; --okc:#0b6b2f;
+    --err:#fdeeee; --errb:#f3c2c2; --errc:#8a1f1f;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+    line-height:1.5;
+  }
+  .container{max-width:980px; margin:28px auto 64px; padding:0 16px}
+  
+  .header{position:sticky; top:12px; z-index:5; padding:8px 0 14px; background:transparent}
+  .header-inner{position:relative; display:flex; justify-content:center; align-items:center; min-height:44px}
+  .header h1{margin:0; font-size:26px; font-weight:700; letter-spacing:.2px}
+  .header .actions-right{position:absolute; right:0; top:0}
+  .header button{
+    padding:10px 14px; border:1px solid var(--primary); background:var(--primary);
+    color:#fff; font-weight:600; border-radius:8px; cursor:pointer;
+  }
+  .header button:hover{background:var(--primary-600); border-color:var(--primary-600)}
+  
+  h2{margin:0 0 8px; font-size:20px}
+  h3{margin:0 0 8px; font-size:18px}
+  .box{background:#fff; border:1px solid var(--border); border-radius:10px; padding:16px; margin:16px 0 24px}
+  .muted{background:var(--muted); border:1px solid var(--border); border-radius:8px; padding:8px 10px}
+  
+  .grid{display:grid; gap:16px}
+  .grid-2{grid-template-columns:1fr}
+  @media (min-width: 920px){ .grid-2{grid-template-columns:1fr 1fr} }
+  
+  .row{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end}
+  label{font-size:12px; display:block; color:#475569}
+  .field{display:flex; flex-direction:column; gap:6px; min-width:220px}
+  input,select,button{font:inherit; border-radius:8px; outline:none}
+  input,select{border:1px solid var(--border); background:#fff; color:#111827; padding:10px 12px}
+  input:focus,select:focus{border-color:var(--primary); box-shadow:0 0 0 2px rgba(37,99,235,.15)}
+  button{padding:10px 14px; border:1px solid var(--primary); background:var(--primary); color:#fff; font-weight:600; cursor:pointer}
+  button:hover{background:var(--primary-600); border-color:var(--primary-600)}
+  button:disabled{opacity:.6; cursor:not-allowed}
+  
+  .alert{padding:10px 12px; border-radius:8px; border:1px solid transparent; margin:12px 0}
+  .alert-success{background:var(--ok); color:var(--okc); border-color:var(--okb)}
+  .alert-error{background:var(--err); color:var(--errc); border-color:var(--errb)}
+  small.text-danger{color:#b91c1c}
+  
+  table{width:100%; border-collapse:collapse}
+  thead th{background:var(--muted); border:1px solid var(--border); padding:10px; text-align:left; font-size:13px; color:#334155}
+  tbody td{border:1px solid var(--border); padding:10px; vertical-align:top}
+  .actions form{display:inline}
+  
+  .pill{display:inline-block; padding:4px 10px; border-radius:999px; border:1px solid var(--border); font-size:13px; color:#334155; background:#fff}
+  .mt-8{margin-top:8px} .mt-12{margin-top:12px} .ml-auto{margin-left:auto}
+  .right{text-align:right}
+  a{color:var(--primary); text-decoration:none} a:hover{text-decoration:underline}
+  
+  .auth-wrap{max-width:640px; margin:0 auto}
+  .headline{font-size:24px; font-weight:700}
+  .nrp-big{font-size:16px}
+  .stats-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px}
+  

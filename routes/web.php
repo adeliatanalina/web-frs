@@ -4,21 +4,10 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\KONTROLER;
 use App\Http\Controllers\FRSController;
 
-/*
-|--------------------------------------------------------------------------
-| Halaman Home (publik)
-| - Guest: form register + login (sudah ada di Home.blade)
-| - Auth : konten FRS
-|--------------------------------------------------------------------------
-*/
+
 Route::view('/', 'Home')->name('home');
 
-/*
-|--------------------------------------------------------------------------
-| Auth (publik)
-|--------------------------------------------------------------------------
-*/
-// /login diarahkan ke home karena form login ada di Home.blade
+/* Auth */
 Route::get('/login', fn () => redirect()->route('home'))->name('login');
 
 // submit form
@@ -37,9 +26,7 @@ Route::delete('/kelas/{kelas}',   [FRSController::class, 'destroyKelas'])->name(
 
 
 /*
-|--------------------------------------------------------------------------
-| Aksi FRS (wajib login)
-|--------------------------------------------------------------------------
+frs kalo login
 */
 Route::middleware('auth')->group(function () {
     // master data (opsional dipakai sendiri)
